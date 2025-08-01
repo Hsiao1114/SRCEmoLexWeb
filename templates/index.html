@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中文情緒分析工具</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>中文情緒分析工具</h1>
+    <form id="analyzeForm">
+      <label for="text">請輸入文章：</label>
+      <textarea id="text" name="text" rows="8" placeholder="貼上文章"></textarea>
+      <p>或上傳檔案（.txt 或 .docx）：</p>
+      <input type="file" id="file" name="file" accept=".txt,.docx" />
+      <button type="submit">分析情緒</button>
+    </form>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    // 顯示訊息到結果區域，取代瀏覽器彈窗
+    function showMessage(message, isError = false) {
+        const resultDiv = document.getElementById("result");
+        const className = isError ? 'error' : '';
+        resultDiv.innerHTML = `<p class="${className}">${message}</p>`;
+    }
+
+    document.getElementById("analyzeForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData();
+      const text = document.getElementById("text").value.trim();
+      const file = document.getElementById("file").files[0];
+      
+      // 檢查使用者是否輸入文字或選擇檔案
+      if (!text && !file) {
+        showMessage("請輸入文字或選擇一個檔案。", true);
+        return;
+      }
+      
+      // 修正：修正為只處理其中一種輸入
+      if (file) {
+        formData.append("file", file);
+      } else if (text) {
+        formData.append("text", text);
+      }
+
+      // 使用 try...catch 捕捉可能的錯誤
+      try {
+        const res = await fetch("/analyze", { method: "POST", body: formData });
+        const data = await res.json();
+  
+        const resultDiv = document.getElementById("result");
+        
+        // 處理後端返回的錯誤訊息
+        if (data.error) {
+          showMessage(data.error, true);
+          return;
+        }
+
+        // 處理後端返回的空結果訊息
+        if (data.message) {
+            showMessage(data.message);
+            return;
+        }
+  
+        // 處理情緒分析結果
+        // 後端返回的 data 格式為 { "emotion": count, ... }
+        const resultHtml = "<h2>分析結果：</h2><ul>" + 
+          Object.entries(data).map(([emo, val]) =>
+            `<li>${emo}：${val} 次</li>`
+          ).join("") + "</ul>";
+          
+        resultDiv.innerHTML = resultHtml;
+
+        // 在結果顯示後，加入一個重新載入按鈕
+        resultDiv.innerHTML += `<button onclick="window.location.reload();" class="reload-button">重新分析</button>`;
+
+      } catch (error) {
+        // 捕捉網路或 JSON 解析錯誤
+        showMessage(`發生錯誤：${error.message}`, true);
+      }
+    });
+  </script>
+</body>
+</html>
